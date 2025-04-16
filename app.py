@@ -46,17 +46,21 @@ app.layout = html.Div([
 
 
 def parse_expr(expr):
-    """
-    Parseia uma expressão do tipo '3x+2y' e retorna uma tupla com os coeficientes (coef_x, coef_y).
-    """
     expr = expr.replace(' ', '')
-    match = re.findall(r'([+-]?\d*\.?\d*)x|([+-]?\d*\.?\d*)y', expr)
     a, b = 0, 0
-    for x, y in match:
-        if x:
-            a = float(x) if x not in ['', '+', '-'] else float(x + '1')
-        if y:
-            b = float(y) if y not in ['', '+', '-'] else float(y + '1')
+
+    # Garantir que "x" e "y" sozinhos sejam reconhecidos corretamente
+    x_match = re.search(r'([+-]?\d*\.?\d*)x', expr)
+    y_match = re.search(r'([+-]?\d*\.?\d*)y', expr)
+
+    if x_match:
+        x_val = x_match.group(1)
+        a = float(x_val) if x_val not in ['', '+', '-'] else float(x_val + '1')
+
+    if y_match:
+        y_val = y_match.group(1)
+        b = float(y_val) if y_val not in ['', '+', '-'] else float(y_val + '1')
+
     return a, b
 
 
@@ -106,6 +110,7 @@ def resolver(n, objetivo, tipo, restricoes):
 
         fig, ax = plt.subplots()
         x_vals = np.linspace(0, 10, 400)
+
         for i in range(len(A)):
             a1, a2 = A[i]
             # Defina uma tolerância pequena para evitar divisões por zero
