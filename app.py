@@ -14,34 +14,78 @@ app = dash.Dash(__name__)
 server = app.server
 
 app.layout = html.Div([
-    html.H1("Solução Gráfica de Programação Linear"),
+    html.Div([
+        html.H1("Solução Gráfica de Programação Linear", style={"fontSize": "24px"}),
 
-    html.Label("Função objetivo (ex: 4x + 8y):"),
-    dcc.Input(id='objetivo', type='text', value='4x + 8y', style={'width': '300px'}),
+        html.Label("Função objetivo (ex: 4x + 8y):"),
+        dcc.Input(
+            id='objetivo',
+            type='text',
+            value='4x + 8y',
+            style={
+                'width': '100%',
+                'padding': '8px',
+                'border': '1px solid #ccc',
+                'borderRadius': '6px',
+                'fontSize': '16px'
+            }
+        ),
 
-    html.Label("Tipo (max ou min):"),
-    dcc.Dropdown(
-        id='tipo',
-        options=[
-            {'label': 'Maximizar', 'value': 'max'},
-            {'label': 'Minimizar', 'value': 'min'}
-        ],
-        value='max',
-        style={'width': '150px'}
-    ),
+        html.Label("Tipo (max ou min):", style={'marginTop': '12px'}),
+        dcc.Dropdown(
+            id='tipo',
+            options=[
+                {'label': 'Maximizar', 'value': 'max'},
+                {'label': 'Minimizar', 'value': 'min'}
+            ],
+            value='max',
+            style={
+                'width': '100%',
+                'padding': '4px',
+                'borderRadius': '6px',
+                'fontSize': '16px'
+            }
+        ),
 
-    html.Label("Restrições (uma por linha):"),
-    dcc.Textarea(
-        id='restricoes',
-        value='8x + 4y <= 1280\n4x + 12y <= 1600\nx >= 100\ny >= 100\n4x + 4y <= 760\nx <= 140\ny <= 120',
-        style={'width': '300px', 'height': '140px'}
-    ),
+        html.Label("Restrições (uma por linha):", style={'marginTop': '12px'}),
+        dcc.Textarea(
+            id='restricoes',
+            value='8x + 4y <= 1280\n4x + 12y <= 1600\nx >= 100\ny >= 100\n4x + 4y <= 760\nx <= 140\ny <= 120',
+            style={
+                'width': '100%',
+                'height': '140px',
+                'padding': '8px',
+                'borderRadius': '6px',
+                'fontSize': '16px',
+                'border': '1px solid #ccc',
+                'fontFamily': 'monospace'
+            }
+        ),
 
-    html.Br(),
-    html.Button("Resolver", id='btn'),
-    html.Br(), html.Br(),
+        html.Button("Resolver", id='btn', style={
+            'marginTop': '20px',
+            'padding': '10px 20px',
+            'fontSize': '16px',
+            'border': 'none',
+            'borderRadius': '8px',
+            'backgroundColor': '#007aff',
+            'color': 'white',
+            'cursor': 'pointer',
+            'boxShadow': '0 2px 5px rgba(0,0,0,0.1)'
+        }),
 
-    html.Img(id='grafico', style={'maxWidth': '700px'})
+        html.Div(html.Img(id='grafico', style={'maxWidth': '100%', 'marginTop': '20px'}))
+    ], style={
+        'maxWidth': '700px',
+        'margin': '40px auto',
+        'padding': '30px',
+        'backgroundColor': '#f9f9f9',
+        'borderRadius': '12px',
+        'boxShadow': '0 4px 16px rgba(0,0,0,0.1)',
+        'fontFamily': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+        'fontSize': '16px',
+        'color': '#333'
+    })
 ])
 
 
