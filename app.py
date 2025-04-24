@@ -16,51 +16,46 @@ server = app.server
 app.layout = html.Div([
     html.H1("Solução Gráfica de Programação Linear"),
 
-    html.Label("Função objetivo (ex: 3x + 2y):"),
-    dcc.Input(id='objetivo', type='text', value='3x + 2y', style={'width': '300px'}),
+    html.Label("Função objetivo (ex: 4x + 8y):"),
+    dcc.Input(id='objetivo', type='text', value='4x + 8y', style={'width': '300px'}),
 
     html.Label("Tipo (max ou min):"),
     dcc.Dropdown(
-        id='tipo', 
+        id='tipo',
         options=[
             {'label': 'Maximizar', 'value': 'max'},
             {'label': 'Minimizar', 'value': 'min'}
         ],
-        value='max', 
+        value='max',
         style={'width': '150px'}
     ),
 
-    html.Label("Restrições (uma por linha, ex: x + y <= 4):"),
+    html.Label("Restrições (uma por linha):"),
     dcc.Textarea(
-        id='restricoes', 
-        value='3x + 2y <= 18\nx + y <= 5\nx <= 4\nx >= 0\ny >= 0',
-        style={'width': '300px', 'height': '120px'}
+        id='restricoes',
+        value='8x + 4y <= 1280\n4x + 12y <= 1600\nx >= 100\ny >= 100\n4x + 4y <= 760\nx <= 140\ny <= 120',
+        style={'width': '300px', 'height': '140px'}
     ),
 
     html.Br(),
     html.Button("Resolver", id='btn'),
     html.Br(), html.Br(),
 
-    html.Img(id='grafico', style={'maxWidth': '600px'})
+    html.Img(id='grafico', style={'maxWidth': '700px'})
 ])
 
 
 def parse_expr(expr):
     expr = expr.replace(' ', '')
     a, b = 0, 0
-
-    # Garantir que "x" e "y" sozinhos sejam reconhecidos corretamente
     x_match = re.search(r'([+-]?\d*\.?\d*)x', expr)
     y_match = re.search(r'([+-]?\d*\.?\d*)y', expr)
-
     if x_match:
-        x_val = x_match.group(1)
-        a = float(x_val) if x_val not in ['', '+', '-'] else float(x_val + '1')
-
+        v = x_match.group(1)
+        a = float(v) if v not in ['', '+', '-'] else float(v + '1')
     if y_match:
-        y_val = y_match.group(1)
-        b = float(y_val) if y_val not in ['', '+', '-'] else float(y_val + '1')
-
+        v = y_match.group(1)
+        b = float(v) if v not in ['', '+', '-'] else float(v + '1')
     return a, b
 
 
@@ -69,93 +64,111 @@ def parse_expr(expr):
     Input('btn', 'n_clicks'),
     State('objetivo', 'value'),
     State('tipo', 'value'),
-    State('restricoes', 'value')
+    State('restricoes', 'value'),
 )
 def resolver(n, objetivo, tipo, restricoes):
     if n is None:
         return dash.no_update
+
     try:
-        # Processa a função objetivo
+        # parse objetivo
         c = np.array(parse_expr(objetivo))
         if tipo == 'max':
-            c = -c  # O linprog minimiza por padrão
+            c = -c
 
-        A = []
-        b = []
-        linhas = restricoes.strip().split('\n')
-        for linha in linhas:
+        # parse restrições
+        A, b = [], []
+        for linha in restricoes.strip().split('\n'):
             if '<=' in linha:
-                partes = linha.split('<=')
-                a_i = parse_expr(partes[0])
-                b_i = float(partes[1])
-                A.append(a_i)
-                b.append(b_i)
+                lhs, rhs = linha.split('<=')
+                coeff = parse_expr(lhs)
+                A.append(coeff)
+                b.append(float(rhs))
             elif '>=' in linha:
-                partes = linha.split('>=')
-                a_i = parse_expr(partes[0])
-                a_i = [-i for i in a_i]  # Transforma o sinal para <=
-                b_i = -float(partes[1])
-                A.append(a_i)
-                b.append(b_i)
+                lhs, rhs = linha.split('>=')
+                coeff = parse_expr(lhs)
+                coeff = [-coeff[0], -coeff[1]]
+                A.append(coeff)
+                b.append(-float(rhs))
             elif '=' in linha:
-                partes = linha.split('=')
-                a_i = parse_expr(partes[0])
-                b_i = float(partes[1])
-                A.append(a_i)
-                b.append(b_i)
+                lhs, rhs = linha.split('=')
+                coeff = parse_expr(lhs)
+                A.append(coeff)
+                b.append(float(rhs))
 
+        # resolve PL
         res = linprog(c, A_ub=A, b_ub=b, bounds=(0, None), method='highs')
 
-        # Inicia o gráfico e cria uma grade para preencher a região viável
-        fig, ax = plt.subplots()
-        x = np.linspace(0, 10, 400)
-        y = np.linspace(0, 10, 400)
+        # coletar pontos de intercepto para definir eixos
+        pts = [(0, 0)]
+        tol = 1e-9
+        for ai, bi in zip(A, b):
+            a1, a2 = ai
+            # x-intercept: y=0 => x = bi/a1
+            if abs(a1) > tol:
+                pts.append((bi/a1, 0))
+            # y-intercept: x=0 => y = bi/a2
+            if abs(a2) > tol:
+                pts.append((0, bi/a2))
+        # incluir ponto ótimo
+        if res.success:
+            pts.append(tuple(res.x))
+
+        xs, ys = zip(*pts)
+        xmin, xmax = min(xs), max(xs)
+        ymin, ymax = min(ys), max(ys)
+        # margem de 10%
+        mx = (xmax - xmin) * 0.1 if xmax > xmin else xmax * 0.1
+        my = (ymax - ymin) * 0.1 if ymax > ymin else ymax * 0.1
+        xmin, xmax = max(0, xmin - mx), xmax + mx
+        ymin, ymax = max(0, ymin - my), ymax + my
+
+        # preparar grid e máscara
+        x = np.linspace(xmin, xmax, 400)
+        y = np.linspace(ymin, ymax, 400)
         X, Y = np.meshgrid(x, y)
         mask = np.ones_like(X, dtype=bool)
 
-        tol = 1e-9
-        # Para cada restrição, atualiza a máscara e plota a reta correspondente
-        for i in range(len(A)):
-            a1, a2 = A[i]
-            if abs(a1) < tol and abs(a2) < tol:
-                print(f"Aviso: Restrição {i+1} inválida (coeficientes zero), ignorada.")
-                continue
-            # Atualiza a máscara para a região onde a restrição é satisfeita
-            mask &= (a1 * X + a2 * Y <= b[i])
-            # Plota a restrição
+        # plot
+        fig, ax = plt.subplots()
+        for idx, (ai, bi) in enumerate(zip(A, b), start=1):
+            a1, a2 = ai
+            mask &= (a1*X + a2*Y <= bi)
+            # reta
             if abs(a2) > tol:
-                y_vals = (b[i] - a1 * x) / a2
-                ax.plot(x, y_vals, label=f'Restrição {i + 1}')
+                Yc = (bi - a1*x) / a2
+                ax.plot(x, Yc, label=f'Restrição {idx}')
             elif abs(a1) > tol:
-                x_const = b[i] / a1
-                ax.axvline(x_const, label=f'Restrição {i + 1}')
-            else:
-                print(f"Aviso: Restrição {i+1} inválida (coeficientes zero), ignorada.")
+                xc = bi/a1
+                ax.axvline(x=xc, label=f'Restrição {idx}')
 
-        # Preenche a região viável com uma cor (neste exemplo, #c0ffee)
+        # região viável
         ax.contourf(X, Y, mask, levels=[0.5, 1], colors=['#c0ffee'], alpha=0.5)
 
-        # Plota o ponto ótimo, se houver solução
+        # ponto ótimo
         if res.success:
             x_opt, y_opt = res.x
             ax.plot(x_opt, y_opt, 'ro', label='Ponto ótimo')
-            ax.text(x_opt, y_opt, f'({x_opt:.2f}, {y_opt:.2f})', fontsize=10)
+            ax.text(x_opt, y_opt, f'({x_opt:.2f}, {y_opt:.2f})')
         else:
-            ax.text(2, 2, 'Problema sem solução viável!', color='red')
+            ax.text((xmin+xmax)/2, (ymin+ymax)/2,
+                    'Sem solução viável', color='red', ha='center')
 
-        ax.set_xlim(0, 10)
-        ax.set_ylim(0, 10)
+        ax.set_xlim(xmin, xmax)
+        ax.set_ylim(ymin, ymax)
         ax.set_xlabel('x')
         ax.set_ylabel('y')
         ax.grid(True)
         ax.legend()
 
+        # converter para base64
         buf = io.BytesIO()
-        plt.savefig(buf, format="png")
+        plt.savefig(buf, format='png')
         plt.close(fig)
         buf.seek(0)
-        img_b64 = base64.b64encode(buf.read()).decode('utf-8')
-        return f"data:image/png;base64,{img_b64}"
+        img = base64.b64encode(buf.read()).decode('utf-8')
+        return f"data:image/png;base64,{img}"
+
     except Exception as e:
         print("Erro no callback:", e)
         return dash.no_update
